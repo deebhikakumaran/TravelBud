@@ -1,5 +1,12 @@
 # TravelBud - AI-Powered Travel Assistant 
 
+[![Demo Video](https://img.shields.io/badge/Watch-Demo%20Video-blue?style=for-the-badge)](https://drive.google.com/file/d/18UcGIUkUaIaakoNc-T00s3mGGEgI5bQ2/view?usp=sharing)
+[![Live Site](https://img.shields.io/badge/Visit-Deployed%20App-brightgreen?style=for-the-badge)](https://clearview360.netlify.app/)
+
+> Your smart travel companion. Plan less, explore more!
+
+---
+
 ## 🌍 Overview
 
 TravelBud is an intelligent travel assistant that leverages the Fetch.ai ecosystem to help you effortlessly plan personalized travel itineraries. It uses specialized AI agents to handle flight bookings, hotel reservations, food recommendations, attraction suggestions, and local tips through natural language conversations.
@@ -8,14 +15,14 @@ TravelBud is an intelligent travel assistant that leverages the Fetch.ai ecosyst
 
 ## ⚡ Features
 
-- Personalized Itinerary Creation: Get custom travel plans based on your interests, budget, and schedule.
-- Live Travel Data: Access up-to-date information on flights, hotels, and attractions via the Amadeus API.
-- Real-Time Search: Fetch the latest destination insights and recommendations using the Tavily Search API.
-- Conversational AI: Interact naturally with TravelBud, powered by ASI1 LLM and OpenAI API for rich, context-aware dialogue.
-- Chat Protocol: Seamless agent-to-agent communication.
-- Multi-Agent Coordination: Sophisticated workflow management using LangGraph and uAgents for seamless, multi-step planning.
-- Privacy & Security: All communications and data are secured using the uAgents framework.
-- Hosting Platform: Agentverse deployment for decentralized operation
+- **Personalized Itinerary Creation**: Get custom travel plans based on your interests, budget, and schedule.
+- **Live Travel Data**: Access up-to-date information on flights, hotels, and attractions via the Amadeus API.
+- **Real-Time Search**: Fetch the latest destination insights and recommendations using the Tavily Search API.
+- **Conversational AI**: Interact naturally with TravelBud, powered by ASI1 LLM and OpenAI API for rich, context-aware dialogue.
+- **Chat Protocol**: Seamless agent-to-agent communication.
+- **Multi-Agent Coordination**: Sophisticated workflow management using LangGraph and uAgents for seamless, multi-step planning.
+- **Privacy & Security**: All communications and data are secured using the uAgents framework.
+- **Hosting Platform**: Agentverse deployment for decentralized operation
 
 ---
 
@@ -23,25 +30,18 @@ TravelBud is an intelligent travel assistant that leverages the Fetch.ai ecosyst
 
 ### Core Infrastructure
 
-🧠 **ASI LLM** - Advanced reasoning and explainable outputs
-
-🤖 **uAgents** - Autonomous, secure agent execution
-
-🌐 **Agentverse** - Agent deployment & discovery platform
-
-🔍 **Tavily** - Real-time search for travel content and news
-
-🧠 **OpenAI** - Natural language understanding and conversation
+- 🧠 **ASI LLM** - Advanced reasoning and explainable outputs
+- 🤖 **uAgents** - Autonomous, secure agent execution
+- 🌐 **Agentverse** - Agent deployment & discovery platform
+- 🔍 **Tavily** - Real-time search for travel content and news
+- 🧠 **OpenAI** - Natural language understanding and conversation
 
 ### Supporting Technologies
 
-🐍 **LangGraph** - Multi-agent workflow orchestration 
-
-📡 **REST API** - Frontend-backend communication
-
-🎨 **Streamlit** - User interface
-
-🔄 **Chat Protocol** - Agent communication standard
+- 🐍 **LangGraph** - Multi-agent workflow orchestration 
+- 📡 **REST API** - Frontend-backend communication
+- 🎨 **Streamlit** - User interface
+- 🔄 **Chat Protocol** - Agent communication standard
 
 ---
 
@@ -58,16 +58,16 @@ TravelBud is an intelligent travel assistant that leverages the Fetch.ai ecosyst
 
 ## 🚀 Quickstart
 
-#### Clone the Repository
+#### 1. Clone the Repository
 
     https://github.com/deebhikakumaran/TravelBud.git
     cd TravelBud
 
-#### Install Dependencies
+#### 2. Install Dependencies
 
     pip install -r requirements.txt
 
-#### Set Up API Keys
+#### 3. Set Up API Keys
 
 Create a `.env` file in the root directory and add your keys:
 
@@ -79,9 +79,9 @@ Create a `.env` file in the root directory and add your keys:
     TAVILY_API_KEY=your-tavily-key
     AMADEUS_API_KEY=your-amadeus-key
 
-#### Running the System
+#### 4. Running the System
 
-    1. Start Agents (in separate terminals):
+    Start Agents (in separate terminals):
 
         python user_assistant.py
         python flight_agent.py
@@ -90,7 +90,7 @@ Create a `.env` file in the root directory and add your keys:
         python attraction_agent.py
         python local_tips_agent.py
 
-    2. Launch Streamlit UI:
+    Launch Streamlit UI:
 
         streamlit run ui.py
 

@@ -169,6 +169,11 @@ async def handle_acknowledgement(ctx: Context, sender: str, msg: ChatAcknowledge
 @user_assistant.on_rest_post("/send-query", Request, Response)
 async def handle_user_query(ctx: Context, req: Request) -> Response:
     global latest_response
+
+    # Reset event for new query
+    response_event.clear()
+    latest_response = ''
+    
     try:
         user_query = req.text.strip()
 
@@ -187,9 +192,9 @@ async def handle_user_query(ctx: Context, req: Request) -> Response:
         # 4. Forward query to target agent
         result = await _forward_to_agent(ctx, target_agent.address, user_query)
 
-        # 5. Wait for agent response with 30s timeout
+        # 5. Wait for agent response with 100s timeout
         try:
-            await asyncio.wait_for(response_event.wait(), timeout=80.0)
+            await asyncio.wait_for(response_event.wait(), timeout=100.0)
             return Response(text=latest_response)
         
         except asyncio.TimeoutError:
