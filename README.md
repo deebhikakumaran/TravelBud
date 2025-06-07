@@ -1,8 +1,5 @@
 # TravelBud - AI-Powered Travel Assistant 
 
-[![Demo Video](https://img.shields.io/badge/Watch-Demo%20Video-blue?style=for-the-badge)](https://drive.google.com/file/d/18UcGIUkUaIaakoNc-T00s3mGGEgI5bQ2/view?usp=sharing)
-[![Live Site](https://img.shields.io/badge/Visit-Deployed%20App-brightgreen?style=for-the-badge)](https://clearview360.netlify.app/)
-
 > Your smart travel companion. Plan less, explore more!
 
 ---
@@ -40,14 +37,14 @@ TravelBud is an intelligent travel assistant that leverages the Fetch.ai ecosyst
 
 - 🐍 **LangGraph** - Multi-agent workflow orchestration 
 - 📡 **REST API** - Frontend-backend communication
-- 🎨 **Streamlit** - User interface
+- 🎨 **React** - User interface
 - 🔄 **Chat Protocol** - Agent communication standard
 
 ---
 
 ## 🔗 Agent Communication Flow
 
-- User query → Streamlit frontend
+- User query → React frontend
 - REST API → User Assistant Agent
 - ASI LLM classifies query type
 - Route to specialized agent
@@ -83,16 +80,18 @@ Create a `.env` file in the root directory and add your keys:
 
     Start Agents (in separate terminals):
 
-        python user_assistant.py
         python flight_agent.py
         python hotel_agent.py
         python food_agent.py
         python attraction_agent.py
         python local_tips_agent.py
+        python user_assistant.py
 
-    Launch Streamlit UI:
+    Launch React UI:
 
-        streamlit run ui.py
+        cd client
+        npm i
+        npm run dev
 
 ---
 

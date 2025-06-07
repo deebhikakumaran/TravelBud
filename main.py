@@ -29,6 +29,8 @@ tavily_search=TavilySearchResults(max_results=5)
 from typing import List, Optional, Annotated
 from pydantic import BaseModel, Field
 
+token = "CXNoAMYmAWl1NyJ1cHSLPznPKbaW"
+
 class FlightDetail(BaseModel):
     departure_airport: Annotated[Optional[str], Field(None, description="Departure airport code or name")]
     arrival_airport: Annotated[Optional[str], Field(None, description="Arrival airport code or name")]
@@ -108,7 +110,109 @@ def search_flights(depart: str, destinations: str, departure_date: str, return_d
     )
     return tavily_search.invoke({"query": query})
 
+# @tool
+# def search_flights(
+#     origin_location_code: str,
+#     destination_location_code: str,
+#     departure_date: str,
+#     return_date: str,
+#     adults: str,
+#     travel_class: str = "ECONOMY",
+#     children: str = "0",
+#     infants: str = "0",
+#     currency: str = "INR",
+#     airline_code: str = None
+# ) -> str:
+#     """
+#     Get flight availability details and offers.
 
+#     Args:
+#         origin_location_code (str): The IATA code of the origin location.
+#         destination_location_code (str): The IATA code of the destination location.
+#         departure_date (str): Departure date in ISO format ('YYYY-MM-DD').
+#         return_date (str): Return date in ISO format ('YYYY-MM-DD').
+#         adults (str): Number of adults.
+#         children (str): Number of children.
+#         infants (str): Number of infants.
+#         travel_class (str): Travel class (e.g., 'ECONOMY', 'PREMIUM ECONOMY', 'BUSINESS', 'FIRST CLASS'). Default is 'ECONOMY'.
+#         currency (str): Currency code in ISO 4217 format (default is 'EUR').
+#         airline_code (str, optional): The two-letter IATA airline code (e.g., 'WY' for Oman Air, 'EK' for Emirates). If not provided, results will not be filtered by airline.
+    
+#     Returns:
+#     - A list of available flights operating on the given date from the specified origin to destination and return.
+#     - For each flight, include details such as:
+#         * Flight number
+#         * Departure and arrival airports
+#         * Departure and arrival times
+#         * Travel class
+#         * Operating airline
+#         * Price
+
+#     ** Do not include Aircraft Details.**
+#     """
+#     try:
+#         global token
+
+#         base_url = (
+#             f"https://test.api.amadeus.com/v2/shopping/flight-offers?"
+#             f"originLocationCode={origin_location_code}&"
+#             f"destinationLocationCode={destination_location_code}&"
+#             f"departureDate={departure_date}&"
+#             f"returnDate={return_date}&"
+#             f"adults={adults}&"
+#             f"children={children}&"
+#             f"infants={infants}&"
+#             f"travelClass={travel_class}&"
+#             f"nonStop=false&currencyCode={currency}&max=10"
+#         )
+
+#         # Append airline code filter if provided
+#         if airline_code:
+#             base_url += f"&includedAirlineCodes={airline_code}"
+
+#         headers = {
+#             "Authorization": f"Bearer {token}"
+#         }
+
+#         response = requests.get(base_url, headers=headers)
+
+#         return response.text
+#     except Exception as e:
+#         return f"Unable to fetch flights."
+
+@tool
+def regenerate_token() -> dict:
+    """
+    Return the access token when it is expired from the domain **test.api.amadeus.com**
+    
+    Return:
+        Access token
+    """
+    global token
+
+    try:
+        url = "https://test.api.amadeus.com/v1/security/oauth2/token"
+
+        payload = {
+            'client_id': 'Yop9wZHCvDFA4gEgPxnMrsQz6dhdC8qk',
+            'client_secret': 'ZlqJ2GQwDnozgdjw',
+            'grant_type': 'client_credentials'
+        }
+
+        files = []
+
+        headers = {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+
+        response = requests.request("POST", url, headers=headers, data=payload, files=files)
+
+        token = response.json()['access_token']
+        return response.text
+
+    except Exception as e:
+        return "Unable to regenerate token"
+    
 @tool
 def search_hotels(destinations: str, budget: int) -> str:
     """
@@ -193,6 +297,18 @@ def search_web(query) -> str:
 
 
 #Agents
+# flight_agent = create_react_agent(
+#     llm,
+#     tools=[today_date, search_flights, regenerate_token],
+#     prompt="""
+#     You are a flight booking expert.\n"
+#     - Assist ONLY with flight booking tasks.\n"
+#     - Return **only** the flight search results.\n"
+#     - Consider class of traveller to be economy if not provided.\n"
+#     - Suggest layover flights if no direct flights are available and are available at low cost.\n"
+#     """,
+#     name="flight_agent",
+# )
 flight_agent = create_react_agent(
     llm,
     tools=[today_date, search_flights],
@@ -253,69 +369,69 @@ local_tips_agent = create_react_agent(
 
 #Supervisor
 
-supervisor = create_supervisor(
-    model=init_chat_model("openai:o3-mini"),
-    agents=[
-        flight_agent,
-        hotel_agent,
-        food_agent,
-        attraction_agent,
-        local_tips_agent,
-    ],
-    tools=[today_date],
-    prompt=(
-        """You are a supervisor agent for a multi-agent travel planner system. Your role is to coordinate and guide other agents
-        (like Flight Search, Hotel Search, Food, Attractions, and Local Tips),
-        making strategic decisions based on the user's preferences and the current state of the plan.
+# supervisor = create_supervisor(
+#     model=init_chat_model("openai:o3-mini"),
+#     agents=[
+#         flight_agent,
+#         hotel_agent,
+#         food_agent,
+#         attraction_agent,
+#         local_tips_agent,
+#     ],
+#     tools=[today_date],
+#     prompt=(
+#         """You are a supervisor agent for a multi-agent travel planner system. Your role is to coordinate and guide other agents
+#         (like Flight Search, Hotel Search, Food, Attractions, and Local Tips),
+#         making strategic decisions based on the user's preferences and the current state of the plan.
 
-        You must:
-        1. Understand the user's travel intent and preferences.
-        2. Break down the planning into manageable sub-tasks (e.g., flight search, hotel options, food, attractions).
-        3. Decide the order in which these sub-tasks should be executed.
-        4. Dynamically decide which agent/tool should be invoked at each step.
-        5. Maintain memory of what has already been completed (flights booked, hotel found, etc).
-        6. Update and refine the plan with each new piece of information.
-        7. Ensure all agent calls help move toward a complete, realistic travel plan.
-        8. Always consider future dates and the current date when planning.
-        9. Ensure the plan is budget-aware and enjoyable for the user.
-        10. Use the formatter agent to compile the final itinerary.
-        11. If currency is not provided, assume the currency of the departure location.
-        ***CAREFULLY REASON THE GIVEN BUDGET USING THE GIVEN CURRENCY AND SEE WHETHER THE TRIP CAN BE DONE COMFORTABLY USING THAT BUDGET, IF NOT, TELL THE USER YOU CANNOT VISIT COMFORTABLY WITH THIS BUDGET***
+#         You must:
+#         1. Understand the user's travel intent and preferences.
+#         2. Break down the planning into manageable sub-tasks (e.g., flight search, hotel options, food, attractions).
+#         3. Decide the order in which these sub-tasks should be executed.
+#         4. Dynamically decide which agent/tool should be invoked at each step.
+#         5. Maintain memory of what has already been completed (flights booked, hotel found, etc).
+#         6. Update and refine the plan with each new piece of information.
+#         7. Ensure all agent calls help move toward a complete, realistic travel plan.
+#         8. Always consider future dates and the current date when planning.
+#         9. Ensure the plan is budget-aware and enjoyable for the user.
+#         10. Use the formatter agent to compile the final itinerary.
+#         11. If currency is not provided, assume the currency of the departure location.
+#         ***CAREFULLY REASON THE GIVEN BUDGET USING THE GIVEN CURRENCY AND SEE WHETHER THE TRIP CAN BE DONE COMFORTABLY USING THAT BUDGET, IF NOT, TELL THE USER YOU CANNOT VISIT COMFORTABLY WITH THIS BUDGET***
 
-        Rules:
-        - Always think step-by-step before invoking a tool.
-        - Be efficient: only call tools when absolutely necessary.
+#         Rules:
+#         - Always think step-by-step before invoking a tool.
+#         - Be efficient: only call tools when absolutely necessary.
 
-        Your goal is to build a coherent, budget-aware, enjoyable trip for the user.
+#         Your goal is to build a coherent, budget-aware, enjoyable trip for the user.
 
-        Respond with a subsequent question to the user to gather more information or provide the output of formatter agent 
-        only if all details are available. Do not summarize.
+#         Respond with a subsequent question to the user to gather more information or provide the output of formatter agent 
+#         only if all details are available. Do not summarize.
 
-        "You will receive all collected data in a JSON-like structure:\n"
-        - flights\n"
-        - hotels\n"
-        - attractions\n"
-        - food_options\n"
-        - local_tips\n"
-        - budget_breakdown\n\n"
+#         "You will receive all collected data in a JSON-like structure:\n"
+#         - flights\n"
+#         - hotels\n"
+#         - attractions\n"
+#         - food_options\n"
+#         - local_tips\n"
+#         - budget_breakdown\n\n"
 
-        INSTRUCTIONS:\n"
-        1. Produce a **day-by-day** Markdown itinerary.\n"
-        2. For each day, list:\n"
-        - Flight / check-in (Day 1 only)\n"
-        - Attractions with inline images (`![](<url>)`). Images should be small with 200 - 300 px only. Use search_web tool to get them.\n"
-        - Try to add all attractions images that are publicly available.\n"
-        - Meal suggestions with valid links\n"
-        - Estimated cab fares\n"
-        3. Conclude with a **summary table** of total expenses by category (flights, hotels, food, transport, misc).\n"
-        4. Use headings (`### Day 1`), bullet lists, and Markdown tables.\n\n"
-        Respond *only* with the formatted Markdown.
-        """),
-    add_handoff_messages=False,
-    add_handoff_back_messages=False,
-    output_mode="last_message",
-    response_format=Itinerary,
-    state_schema=AgentStateWithStructuredResponse
-)
+#         INSTRUCTIONS:\n"
+#         1. Produce a **day-by-day** Markdown itinerary.\n"
+#         2. For each day, list:\n"
+#         - Flight / check-in (Day 1 only)\n"
+#         - Attractions with inline images (`![](<url>)`). Images should be small with 200 - 300 px only. Use search_web tool to get them.\n"
+#         - Try to add all attractions images that are publicly available.\n"
+#         - Meal suggestions with valid links\n"
+#         - Estimated cab fares\n"
+#         3. Conclude with a **summary table** of total expenses by category (flights, hotels, food, transport, misc).\n"
+#         4. Use headings (`### Day 1`), bullet lists, and Markdown tables.\n\n"
+#         Respond *only* with the formatted Markdown.
+#         """),
+#     add_handoff_messages=False,
+#     add_handoff_back_messages=False,
+#     output_mode="last_message",
+#     response_format=Itinerary,
+#     state_schema=AgentStateWithStructuredResponse
+# )
 
-app = supervisor.compile()
+# app = supervisor.compile()

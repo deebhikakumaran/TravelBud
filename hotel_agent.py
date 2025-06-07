@@ -1,97 +1,22 @@
-from uagents import Agent, Context, Protocol
-from uagents_adapter import LangchainRegisterTool
-from main import hotel_agent as langgraph_hotel_agent
+import os
 import time
-import asyncio
+from dotenv import load_dotenv
+from langchain_core.messages import HumanMessage
+from uagents_adapter import LangchainRegisterTool, cleanup_uagent
+from main import hotel_agent
+from utils import extract_langgraph_content, ASI_ENDPOINT, ASI_HEADERS
 import requests
-from uagents_adapter import cleanup_uagent
-from datetime import datetime
-from uuid import uuid4
-from uagents_core.contrib.protocols.chat import (
-    ChatMessage, 
-    ChatAcknowledgement, 
-    TextContent,
-    chat_protocol_spec
-)
-from utils import AGENTVERSE_API_KEY, create_asi_client, ASI_ENDPOINT, ASI_HEADERS
 
-# Initialize ASI client
-asi = create_asi_client()
+load_dotenv()
 
-# Initialize uAgent with proper config
-hotel_agent = Agent(
-    name="ParadoxHotelAgent",
-    seed="paradox_hotel_agent_seed",
-    port=8002,
-    endpoint=["http://localhost:8002/submit"]
-)
+# Get API token for Agentverse
+API_TOKEN = os.environ["AGENTVERSE_API_KEY"]
 
-# Create chat protocol instance
-chat_proto = Protocol(spec=chat_protocol_spec)
+if not API_TOKEN:
+    raise ValueError("Please set AGENTVERSE_API_KEY environment variable")
 
-@chat_proto.on_message(ChatMessage)
-async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
-    try:
-        # Send immediate acknowledgement
-        ack = ChatAcknowledgement(
-            timestamp=datetime.now(),
-            acknowledged_msg_id=msg.msg_id
-        )
-        await ctx.send(sender, ack)
-
-        # Extract text content
-        text_content = next(c for c in msg.content if isinstance(c, TextContent))
-
-        # Process query with ASI LLM
-        structured_input = await  _get_structured_input_async(text_content.text)
-
-        # Invoke LangGraph agent
-        result = await asyncio.wait_for(
-            asyncio.to_thread(
-                langgraph_hotel_agent.invoke,
-                {"messages": [{"role": "user", "content": structured_input}]}
-            ),
-            timeout=30.0
-        )
-
-        # Extract content from result
-        content = extract_langgraph_content(result)
-        
-        # Send response
-        response = ChatMessage(
-            content=[TextContent(text=content)],
-            msg_id=str(uuid4()),
-            timestamp=datetime.now()
-        )
-        await ctx.send(sender, response)
-        
-    except Exception as e:
-        error_msg = ChatMessage(
-            content=[TextContent(text=f"Hotel search error: {str(e)}")],
-            msg_id=str(uuid4()),
-            timestamp=datetime.now()
-        )
-        await ctx.send(sender, error_msg)
-
-# Add async version for chat protocol
-async def _get_structured_input_async(query: str) -> str:
-    """Use ASI-1 Mini to convert natural language to structured query"""
-    prompt = f"""
-    Convert this hotel query to structured parameters for ParadoxHotelAgent:
-    Query: {query}
-    
-    Expected format for ParadoxHotelAgent:
-    "destinations, budget"
-    """
-    response = await asi.query(prompt, response_format="json")
-    return response['choices'][0]['message']['content']
-
-@chat_proto.on_message(ChatAcknowledgement)
-async def handle_acknowledgement(ctx: Context, sender: str, msg: ChatAcknowledgement):
-    ctx.logger.info(f"Received acknowledgement from {sender} for message: {msg.acknowledged_msg_id}")
-
-# Enhanced agent wrapper with ASI integration
-def hotel_agent_wrapper(query):
+# Wrap LangGraph agent into a function for UAgent
+def langgraph_agent_func(query):
     try:
         # Extract natural language query
         if isinstance(query, dict):
@@ -105,7 +30,7 @@ def hotel_agent_wrapper(query):
         print(f"Structured input for Hotel Wrapper: {structured_input}")
 
         # Execute agent workflow
-        result = langgraph_hotel_agent.invoke({"messages": [{"role": "user", "content": structured_input}]})
+        result = hotel_agent.invoke({"messages": [{"role": "user", "content": structured_input}]})
 
         print(f"Result from Hotel Wrapper: {result}")
 
@@ -118,37 +43,7 @@ def hotel_agent_wrapper(query):
 
     except Exception as e:
         return f"Error: {str(e)}"
-    
-def extract_langgraph_content(result):
-    """Extract content from LangGraph hotel agent result"""
-    try:
-        # If result has messages key 
-        if isinstance(result, dict) and 'messages' in result:
-            messages = result['messages']
-            if messages and hasattr(messages[-1], 'content'):
-                return messages[-1].content
-            elif messages:
-                return str(messages[-1])
-        
-        # If result is a single message object
-        elif hasattr(result, 'content'):
-            return result.content
-        
-        # If result is a list of messages
-        elif isinstance(result, list) and result:
-            last_msg = result[-1]
-            if hasattr(last_msg, 'content'):
-                return last_msg.content
-            else:
-                return str(last_msg)
-        
-        # Fallback
-        else:
-            return str(result)
-            
-    except Exception as e:
-        return f"Error extracting content: {str(e)}"
-    
+
 # Add this synchronous version
 def _get_structured_input(query: str) -> str:
     """Use ASI-1 Mini to convert natural language to structured query"""
@@ -175,24 +70,26 @@ def _get_structured_input(query: str) -> str:
     except Exception as e:
         return f"Error processing query: {query}"
  
-# Include the chat protocol
-hotel_agent.include(chat_proto, publish_manifest=True)
-
-# Register with Agentverse
+# Register the LangGraph agent via uAgent
 tool = LangchainRegisterTool()
-agent_info = tool.invoke({
-    "agent_obj": hotel_agent_wrapper,
-    "name": "ParadoxHotelAgent",
-    "port": 8002,  # Must match agent's port
-    "description": "Hotel search and booking agent with ASI LLM integration",
-    "api_token": AGENTVERSE_API_KEY,
-    "mailbox": True
-})
+agent_info = tool.invoke(
+    {
+        "agent_obj": langgraph_agent_func,
+        "name": "ParadoxHotelAgent",
+        "port": 8002,
+        "description": "Assists users in finding and booking hotels, offering recommendations based on location, budget, and amenities.",
+        "api_token": API_TOKEN,
+        "mailbox": True
+    }
+)
 
+print(f"✅ Registered LangGraph agent: {agent_info}")
 
+# Keep the agent alive
 try:
     while True:
         time.sleep(1)
 except KeyboardInterrupt:
+    print("🛑 Shutting down LangGraph agent...")
     cleanup_uagent("ParadoxHotelAgent")
-    print("Agent stopped.")
+    print("✅ Agent stopped.")

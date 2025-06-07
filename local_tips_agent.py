@@ -1,99 +1,22 @@
-from uagents import Agent, Context, Protocol
-from uagents_adapter import LangchainRegisterTool
-from main import local_tips_agent as langgraph_local_tips_agent
+import os
 import time
+from dotenv import load_dotenv
+from langchain_core.messages import HumanMessage
+from uagents_adapter import LangchainRegisterTool, cleanup_uagent
+from main import local_tips_agent
 import requests
-from uagents_adapter import cleanup_uagent
-from datetime import datetime
-from uuid import uuid4
-from uagents_core.contrib.protocols.chat import (
-    ChatMessage, 
-    ChatAcknowledgement, 
-    TextContent,
-    chat_protocol_spec
-)
-import asyncio
-from utils import AGENTVERSE_API_KEY, create_asi_client, ASI_ENDPOINT, ASI_HEADERS
+from utils import extract_langgraph_content, ASI_ENDPOINT, ASI_HEADERS
 
-# Initialize ASI client
-asi = create_asi_client()
+load_dotenv()
 
-# Initialize uAgent with proper config
-local_tips_agent = Agent(
-    name="ParadoxLocalTipsAgent",
-    seed="paradox_local_tips_agent_seed",
-    port=8005,
-    endpoint=["http://localhost:8005/submit"]
-)
+# Get API token for Agentverse
+API_TOKEN = os.environ["AGENTVERSE_API_KEY"]
 
-# Create chat protocol instance
-chat_proto = Protocol(spec=chat_protocol_spec)
-    
-@chat_proto.on_message(ChatMessage)
-async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
-    try:
-        # Send immediate acknowledgement
-        ack = ChatAcknowledgement(
-            timestamp=datetime.now(),
-            acknowledged_msg_id=msg.msg_id
-        )
-        await ctx.send(sender, ack)
+if not API_TOKEN:
+    raise ValueError("Please set AGENTVERSE_API_KEY environment variable")
 
-        # Extract text content
-        text_content = next(c for c in msg.content if isinstance(c, TextContent))
-
-        # Process with async ASI LLM
-        structured_input = await _get_structured_input_async(text_content.text)
-
-        # Execute LangGraph agent in thread pool
-        result = await asyncio.wait_for(
-            asyncio.to_thread(
-                langgraph_local_tips_agent.invoke,
-                {"messages": [{"role": "user", "content": structured_input}]}
-            ),
-            timeout=30.0
-        )
-
-        # Extract content from result
-        content = extract_langgraph_content(result)
-
-        # Send response with extracted content
-        response = ChatMessage(
-            content=[TextContent(text=content)], 
-            msg_id=str(uuid4()),
-            timestamp=datetime.now()
-        )
-        await ctx.send(sender, response)
-
-    except Exception as e:
-        error_msg = ChatMessage(
-            content=[TextContent(text=f"Local tips search error: {str(e)}")],
-            msg_id=str(uuid4()),
-            timestamp=datetime.now()
-        )
-        await ctx.send(sender, error_msg)
-
-# Add async version for chat protocol
-async def _get_structured_input_async(query: str) -> str:
-    """Use ASI-1 Mini to convert natural language to structured query"""
-
-    prompt = f"""
-    Convert this local tips query to structured parameters for ParadoxLocalTipsAgent:
-    Query: {query}
-    
-    Expected format for ParadoxLocalTipsAgent:
-    "destinations, departure_date, return_date"
-    """
-    
-    response = await asi.query(prompt, response_format="json")
-    return response['choices'][0]['message']['content']
-
-@chat_proto.on_message(ChatAcknowledgement)
-async def handle_acknowledgement(ctx: Context, sender: str, msg: ChatAcknowledgement):
-    ctx.logger.info(f"Received acknowledgement from {sender} for message: {msg.acknowledged_msg_id}")
-
-# Enhanced agent wrapper with ASI integration
-def local_tips_agent_wrapper(query) -> str:  
+# Wrap LangGraph agent into a function for UAgent
+def langgraph_agent_func(query):
     try:
         # Extract natural language query
         if isinstance(query, dict):
@@ -107,7 +30,7 @@ def local_tips_agent_wrapper(query) -> str:
         print(f"Structured input for LocalTips Wrapper: {structured_input}")
 
         # Execute agent workflow
-        result = langgraph_local_tips_agent.invoke({"messages": [{"role": "user", "content": structured_input}]})
+        result = local_tips_agent.invoke({"messages": [{"role": "user", "content": structured_input}]})
         
         print(f"Result from LocalTips Wrapper: {result}")
 
@@ -120,37 +43,7 @@ def local_tips_agent_wrapper(query) -> str:
 
     except Exception as e:
         return f"Error: {str(e)}"
-    
-def extract_langgraph_content(result):
-    """Extract content from LangGraph LocalTips agent result"""
-    try:
-        # If result has messages key 
-        if isinstance(result, dict) and 'messages' in result:
-            messages = result['messages']
-            if messages and hasattr(messages[-1], 'content'):
-                return messages[-1].content
-            elif messages:
-                return str(messages[-1])
-        
-        # If result is a single message object
-        elif hasattr(result, 'content'):
-            return result.content
-        
-        # If result is a list of messages
-        elif isinstance(result, list) and result:
-            last_msg = result[-1]
-            if hasattr(last_msg, 'content'):
-                return last_msg.content
-            else:
-                return str(last_msg)
-        
-        # Fallback
-        else:
-            return str(result)
-            
-    except Exception as e:
-        return f"Error extracting content: {str(e)}"
-    
+
 def _get_structured_input(query: str) -> str:
     """Use ASI-1 Mini to convert natural language to structured query"""
     
@@ -175,23 +68,26 @@ def _get_structured_input(query: str) -> str:
     except Exception as e:
         return f"Error processing query: {query}"
 
-# Include the chat protocol
-local_tips_agent.include(chat_proto, publish_manifest=True)
-
-# Register with Agentverse
+# Register the LangGraph agent via uAgent
 tool = LangchainRegisterTool()
-agent_info = tool.invoke({
-    "agent_obj": local_tips_agent_wrapper,
-    "name": "ParadoxLocalTipsAgent",
-    "port": 8005,  # Must match agent's port
-    "description": "Local tips search agent",
-    "api_token": AGENTVERSE_API_KEY,
-    "mailbox": True
-})
+agent_info = tool.invoke(
+    {
+        "agent_obj": langgraph_agent_func,
+        "name": "ParadoxLocalTipsAgent",
+        "port": 8005,
+        "description": "Provides cultural insights, travel tips, and local etiquette advice to enhance users’ travel experiences.",
+        "api_token": API_TOKEN,
+        "mailbox": True
+    }
+)
 
+print(f"✅ Registered LangGraph agent: {agent_info}")
+
+# Keep the agent alive
 try:
     while True:
         time.sleep(1)
 except KeyboardInterrupt:
+    print("🛑 Shutting down LangGraph agent...")
     cleanup_uagent("ParadoxLocalTipsAgent")
-    print("Agent stopped.")
+    print("✅ Agent stopped.")

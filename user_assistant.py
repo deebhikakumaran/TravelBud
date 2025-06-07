@@ -8,6 +8,8 @@ from uagents_core.contrib.protocols.chat import (
     TextContent,
     chat_protocol_spec
 )
+from uagents.experimental.quota import QuotaProtocol, RateLimit
+from uagents_core.models import ErrorMessage
 import asyncio
 from utils import ASI_ENDPOINT, ASI_HEADERS, AGENTVERSE_SEARCH_URL, AGENTVERSE_HEADERS
 
@@ -17,6 +19,8 @@ class Request(Model):
 
 class Response(Model):
     text: str
+    agent: str
+    status_code: int
 
 class AgentInfo(Model):
     address: str
@@ -30,6 +34,13 @@ user_assistant = Agent(
     port=8000,
     mailbox=True
 )  
+
+proto = QuotaProtocol(
+    storage_reference=user_assistant.storage,
+    name="UserAssistantRateLimit",
+    version="0.1.0",
+    default_rate_limit=RateLimit(window_size_minutes=60, max_requests=30),
+)
 
 # Create chat protocol instance
 chat_proto = Protocol(spec=chat_protocol_spec)
@@ -88,7 +99,11 @@ def extract_content(query):
 
     except Exception as e:
         return f"Error extracting content: {str(e)}"
-    
+
+@chat_proto.on_message(ChatAcknowledgement)
+async def handle_acknowledgement(ctx: Context, sender: str, msg: ChatAcknowledgement):
+    ctx.logger.info(f"Received acknowledgement from {sender} for message: {msg.acknowledged_msg_id}")
+
 async def _determine_service_type(query: str) -> str:
     """Use ASI-1 Mini for intent classification"""
     prompt = f"""
@@ -161,13 +176,19 @@ async def _forward_to_agent(ctx: Context, agent_address: str, query: str) -> str
     except Exception as e:
         return f"Error communicating with agent: {str(e)}"
 
-@chat_proto.on_message(ChatAcknowledgement)
-async def handle_acknowledgement(ctx: Context, sender: str, msg: ChatAcknowledgement):
-    ctx.logger.info(f"Received acknowledgement from {sender} for message: {msg.acknowledged_msg_id}")
-
-# REST API endpoint to handle user queries
 @user_assistant.on_rest_post("/send-query", Request, Response)
 async def handle_user_query(ctx: Context, req: Request) -> Response:
+    """Handle REST requests with rate limiting"""
+
+    # Check rate limit
+    # if not proto.add_request(
+    #     agent_address='rest_clients',
+    #     function_name="handle_user_query",
+    #     window_size_minutes=60,
+    #     max_requests=30
+    # ):
+    #     return Response(text="Rate limit exceeded. Try again in an hour.", status_code=429, agent='ParadoxUserAssistant')
+    
     global latest_response
 
     # Reset event for new query
@@ -195,10 +216,10 @@ async def handle_user_query(ctx: Context, req: Request) -> Response:
         # 5. Wait for agent response with 100s timeout
         try:
             await asyncio.wait_for(response_event.wait(), timeout=100.0)
-            return Response(text=latest_response)
+            return Response(text=latest_response, status_code=200, agent=target_agent.name)
         
         except asyncio.TimeoutError:
-            return Response(text="Error: Agent response timeout")
+            return Response(text="Error: Agent response timeout", status_code=500, agent=target_agent.name)
         
         finally:
             # Reset event for next query
@@ -206,9 +227,10 @@ async def handle_user_query(ctx: Context, req: Request) -> Response:
             latest_response = ''
 
     except Exception as e:
-        return Response(text=f"User Assistant error: {str(e)}")
+        return Response(text=f"User Assistant error: {str(e)}", status_code=500, agent='ParadoxUserAssistant')
 
 # Include the chat protocol
+user_assistant.include(proto, publish_manifest=True)
 user_assistant.include(chat_proto, publish_manifest=True)
 
 if __name__ == "__main__":
