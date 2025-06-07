@@ -1,5 +1,5 @@
 import os
-import time
+import json
 import asyncio
 from dotenv import load_dotenv
 from langgraph.types import Command
@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from langgraph.graph.message import add_messages
 from uagents_adapter import LangchainRegisterTool, cleanup_uagent
 from uagents_adapter.langchain import AgentManager
+from ai_engine import UAgentResponse, UAgentResponseType
 
 # Load environment variables
 load_dotenv()
@@ -233,7 +234,11 @@ async def setup_multi_server_graph_agent():
                 [HumanMessage(content=state["messages"][-2].content)]
             )
             # We return the final answer
-            return {"final_response": response}
+            # return {"final_response": response}
+            return UAgentResponse(
+                message=json.dumps(response),
+                type=UAgentResponseType.FINAL
+            )
         
         
         # Define the function that determines whether to continue or not

@@ -181,13 +181,13 @@ async def handle_user_query(ctx: Context, req: Request) -> Response:
     """Handle REST requests with rate limiting"""
 
     # Check rate limit
-    # if not proto.add_request(
-    #     agent_address='rest_clients',
-    #     function_name="handle_user_query",
-    #     window_size_minutes=60,
-    #     max_requests=30
-    # ):
-    #     return Response(text="Rate limit exceeded. Try again in an hour.", status_code=429, agent='ParadoxUserAssistant')
+    if not proto.add_request(
+        agent_address='rest_clients',
+        function_name="handle_user_query",
+        window_size_minutes=60,
+        max_requests=30
+    ):
+        return Response(text="Rate limit exceeded. Try again in an hour.", status_code=429, agent='ParadoxUserAssistant')
     
     global latest_response
 

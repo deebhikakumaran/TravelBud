@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from langgraph.graph.message import add_messages
 from uagents_adapter import LangchainRegisterTool, cleanup_uagent
 from uagents_adapter.langchain import AgentManager
+from ai_engine import UAgentResponse, UAgentResponseType
 
 # Load environment variables
 load_dotenv()
@@ -285,7 +286,10 @@ def main():
             # Extract and print the response
             result = response["messages"][-1].content
             print(f"\n✅ Response: {result}\n")
-            return result
+            return UAgentResponse(
+                message=result,   
+                type=UAgentResponseType.FINAL
+            )
         except asyncio.TimeoutError:
             error_msg = f"⏰ Request timed out after {TIMEOUT} seconds."
             print(f"\n❌ {error_msg}\n")
