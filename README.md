@@ -80,14 +80,17 @@ Create a `.env` file in the root directory and add your keys:
 
     Start Agents (in separate terminals):
 
+        cd agents/uagents
+
         python flight_agent.py
         python hotel_agent.py
         python food_agent.py
         python attraction_agent.py
         python local_tips_agent.py
         python user_assistant.py
+        python supervisor_agent.py
 
-    Launch React UI:
+    Launch React client:
 
         cd client
         npm i

@@ -170,49 +170,39 @@ async def setup_multi_server_graph_agent():
             {
                 "today_date": {
                     "command": "python",
-                    "args": ["./today_date.py"],
+                    "args": ["./mcp_servers/today_date.py"],
                     "transport": "stdio",
                 },
                 "search_flights": {
                     "command": "python",
-                    "args": ["./search_flights.py"],
+                    "args": ["./mcp_servers/search_flights.py"],
                     "transport": "stdio",
                 },
                 "regenerate_token": {
                     "command": "python",
-                    "args": ["./regenerate_token.py"],
+                    "args": ["./mcp_servers/regenerate_token.py"],
                     "transport": "stdio",
                 },
                 "search_hotels": {
                     "command": "python",
-                    "args": ["./search_hotels.py"],
+                    "args": ["./mcp_servers/search_hotels.py"],
                     "transport": "stdio",
                 },
                 "search_food": {
                     "command": "python",
-                    "args": ["./search_food.py"],
+                    "args": ["./mcp_servers/search_food.py"],
                     "transport": "stdio",
                 },
                 "search_attractions": {
                     "command": "python",
-                    "args": ["./search_attractions.py"],
+                    "args": ["./mcp_servers/search_attractions.py"],
                     "transport": "stdio",
                 },
                 "local_tips": {
                     "command": "python",
-                    "args": ["./local_tips.py"],
+                    "args": ["./mcp_servers/local_tips.py"],
                     "transport": "stdio",
-                },
-                # "search_image": {
-                #     "command": "python",
-                #     "args": ["./search_image.py"],
-                #     "transport": "stdio",
-                # },
-                # "show_expenditure": {
-                #     "command": "python",
-                #     "args": ["./show_expenditure.py"],
-                #     "transport": "stdio",
-                # },
+                }
             }
         )
         
