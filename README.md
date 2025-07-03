@@ -62,11 +62,12 @@ TravelBud is an intelligent travel assistant that leverages the Fetch.ai ecosyst
 
 #### 2. Install Dependencies
 
+    cd agents
     pip install -r requirements.txt
 
 #### 3. Set Up API Keys
 
-Create a `.env` file in the root directory and add your keys:
+Create a `.env` file in the root/agents directory and add your keys:
 
     OPENAI_API_KEY=your-openai-key
     ASI_API_KEY=your-asi1-key
